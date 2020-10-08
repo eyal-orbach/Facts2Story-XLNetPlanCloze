@@ -1,0 +1,2 @@
+python run_bart.py --data_dir=/home/nlp/eyalo/data/movie_plots/salie_plots_tokens_xlnet_details/ --model_type=bart --model_name_or_path=bart-large --learning_rate=3e-5 \
+--train_batch_size=1 --eval_batch_size=1 --output_dir=/home/nlp/eyalo/bartout/bartbest/ --do_predict --n_gpu 1 --set_gpu 2
