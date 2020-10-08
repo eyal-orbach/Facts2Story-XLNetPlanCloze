@@ -51,6 +51,7 @@ from utils.TokenizationMapper import TokenizationMapper
 
 HELPER_DEVICE = "cuda:3"
 
+#HELPER_MODEL enables modyfing top k logits to the values of these tokens in the helper model
 HELPER_MODEL = "gpt2"
 
 NAIVE_MASK_EXPOSED_SIZE = 20
