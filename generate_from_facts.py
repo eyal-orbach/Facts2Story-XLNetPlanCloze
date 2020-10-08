@@ -55,7 +55,7 @@ HELPER_MODEL = "gpt2"
 
 NAIVE_MASK_EXPOSED_SIZE = 20
 
-RESULTS_OUT_PATH = "/home/nlp/eyalo/tmp/pycharm_project_711/customxlnet/examples/generation_e2e/xlnetfactsonlyend_emnlp2-redo4/"
+RESULTS_OUT_PATH = "results/"
 
 logging.basicConfig(format = '%(asctime)s - %(levelname)s - %(name)s -   %(message)s',
                     datefmt = '%m/%d/%Y %H:%M:%S',
@@ -220,31 +220,33 @@ def sample_sequence(model, context, perm_masks, padding_masks, target_mappings, 
 
                     text_till_now = tokenizer.decode(input_ids[0][:perm_list_idx])
                     if len(text_till_now) > 0:
-                        helper_logits = helper_model(torch.tensor(helper_tokenizer.encode(text_till_now))
-                                                     .to(HELPER_DEVICE).unsqueeze(0))[0][:, -1, :]
 
-                        helper_temprature = temperature
-                        helper_logits = F.softmax(helper_logits /helper_temprature, dim=-1).squeeze(0)
+                        if helper_model is not None:
+                            helper_logits = helper_model(torch.tensor(helper_tokenizer.encode(text_till_now))
+                                                         .to(HELPER_DEVICE).unsqueeze(0))[0][:, -1, :]
 
-                        logits_info = {}
+                            helper_temprature = temperature
+                            helper_logits = F.softmax(helper_logits /helper_temprature, dim=-1).squeeze(0)
 
-                        filtered_indices = filtered_logits.nonzero().squeeze(-1)
-                        filtered_vals = filtered_logits.take(filtered_indices)
+                            logits_info = {}
 
-                        for num_idx, idx in enumerate(filtered_indices):
-                            helper_val = helper_logits[mapper.get_target_idx_From_src(idx.item())]
-                            keystr = tokenizer.convert_ids_to_tokens([idx])[0]
-                            logits_info[keystr]={'x':filtered_vals[num_idx].item(), 'g':helper_val.item(), 'idx':idx.item()}
+                            filtered_indices = filtered_logits.nonzero().squeeze(-1)
+                            filtered_vals = filtered_logits.take(filtered_indices)
+
+                            for num_idx, idx in enumerate(filtered_indices):
+                                helper_val = helper_logits[mapper.get_target_idx_From_src(idx.item())]
+                                keystr = tokenizer.convert_ids_to_tokens([idx])[0]
+                                logits_info[keystr]={'x':filtered_vals[num_idx].item(), 'g':helper_val.item(), 'idx':idx.item()}
 
 
-                        # printlogits(logits_info, text_till_now)
+                            # printlogits(logits_info, text_till_now)
 
-                        new_logits = torch.zeros(tokenizer.vocab_size)
-                        for k, v in sorted(logits_info.items(), key=lambda item: -item[1]['g'])[:top_k]:
-                            new_logits[v['idx']] = v['x']
+                            new_logits = torch.zeros(tokenizer.vocab_size)
+                            for k, v in sorted(logits_info.items(), key=lambda item: -item[1]['x'])[:top_k]:
+                                new_logits[v['idx']] = v['x']
 
-                        new_logits /= new_logits.sum()
-                        filtered_logits = new_logits
+                            new_logits /= new_logits.sum()
+                            filtered_logits = new_logits
 
 
                     token = torch.multinomial(filtered_logits, num_samples=1)
@@ -344,6 +346,8 @@ def main():
         help="Optional directory to store the pre-trained models downloaded from s3 (instead of the default one)",
     )
 
+    parser.add_argument('--results_path', type=str, default=RESULTS_OUT_PATH,
+                        help="path for generated results")
     parser.add_argument("--ngenres", type=int, default=0, help="Number of genres for embedding.")
     parser.add_argument("--nfacts", type=int, default=0, help="Number of genres for embedding.")
     args = parser.parse_args()
@@ -370,15 +374,6 @@ def main():
     model.to(args.device)
     model.eval()
     print("num parameres xlnet: "+ str(count_parameters(model)))
-
-    helper_model_class, helper_tokenizer_class = MODEL_CLASSES[HELPER_MODEL]
-    helper_tokenizer = helper_tokenizer_class.from_pretrained(HELPER_MODEL)
-    helper_model = helper_model_class.from_pretrained(HELPER_MODEL)
-    helper_model.to(HELPER_DEVICE)
-    helper_model.eval()
-
-
-    mapper.init_map(tokenizer, helper_tokenizer)
 
     args.length = model.config.max_position_embeddings  # No generation bigger than model size
     if args.length < 0:
@@ -407,7 +402,7 @@ def main():
     batch_counter=0
     spltarr =args.model_name_or_path.split("/")
     model_name = spltarr[-1] if spltarr[-1] != "" else spltarr[-2]
-    out_path = os.path.join(RESULTS_OUT_PATH, model_name)
+    out_path = os.path.join(args.results_path, model_name)
     for batch in test_dataloader:
         batch_counter+=1
         with torch.no_grad():
@@ -425,17 +420,6 @@ def main():
             inputs_raw = seqs.unsqueeze(0)
             masks_raw = masks.unsqueeze(0)
             genres = tgenres
-
-            # naive_input_text = tokenizer.encode("please continue from here",add_special_tokens=False, return_tensors="pt")
-            # NAIVE_MASK_EXPOSED_SIZE = naive_input_text.size(-1)
-            # naive_input= torch.cat([naive_input_text, torch.zeros(inputs_raw.size(1)-NAIVE_MASK_EXPOSED_SIZE, dtype=torch.long).unsqueeze(0)], dim = -1) \
-            #     .to(args.device).expand(inputs_raw.size())
-
-
-            # naive_masks = torch.cat([torch.ones(NAIVE_MASK_EXPOSED_SIZE), torch.zeros(inputs_raw.size(1)-NAIVE_MASK_EXPOSED_SIZE)])\
-            #     .to(args.device).unsqueeze(0).expand(inputs_raw.size())
-            # masks_raw = naive_masks
-            # # inputs_raw = naive_input
 
 
             prefix_tensor = tokenizer.encode(PADDING_TEXT,add_special_tokens=False, return_tensors="pt").to(args.device).long()
@@ -462,9 +446,7 @@ def main():
                 top_p=args.top_p,
                 device=str(args.device),
                 genre_idxs=genres,
-                tokenizer=tokenizer,
-                helper_tokenizer=helper_tokenizer,
-                helper_model=helper_model
+                tokenizer=tokenizer
             )
 
             from PlotFactsOnlyDataset import GENRES_LIST
