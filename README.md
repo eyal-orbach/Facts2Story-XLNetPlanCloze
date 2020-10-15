@@ -12,10 +12,10 @@ run "run_xlnet_pos_predictor_improved.py" with options like so:
 --model_type=posnet
 --model_name_or_path=xlnet-base-cased
 --do_train
---train_data_file=/home/train/
+--train_data_file=/home/data/train/
 --num_train_epochs 10
 --do_eval
---eval_data_file=/home/train/
+--eval_data_file=/home/data/train/
 --block_size 1024
 --evaluate_during_training
 --xlnet
@@ -56,8 +56,8 @@ run "run_xlnet_finetuning.py" with options like so:
 run generate_from_facts.py with appropiate arguments.
 
 --model_type=cxlnet
---model_name_or_path=/home/customxlnet/checkpoint-7000
---pos_model_name_or_path=/home/pos_predictor/checkpoint-1000
+--model_name_or_path=/home/models/customxlnet/checkpoint-7000
+--pos_model_name_or_path=/home/models/pos_predictor/checkpoint-1000
 --padding_text=""
 --test_file_path=/home/data/proofed
 --top_k
