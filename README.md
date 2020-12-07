@@ -1,7 +1,8 @@
 # XLNetPlanCloze
 This repo holds the code for the expirements described in the paper
 "Facts2Story: Controlling Text Generation with Key Facts"
-to be presented Coling 2020
+Presented in Coling 2020
+https://www.aclweb.org/anthology/2020.coling-main.211/
 
 The code relies heaviley on the Huggingface Transformers library. 
 
